@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study Guitar</title>
+<style>
+  :root {
+    --bg: #14161c; --panel: #1d2029; --line: #2c3040; --text: #e8eaf0; --dim: #6b7183;
+    --lit: #ffcc4d; --accent: #ff6b5b; --beat: #5bc0ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, "Segoe UI", sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 4px 0 16px; font-weight: 600; }
+  .panel { background: var(--panel); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .row-ctl { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .row-ctl:last-child { margin-bottom: 0; }
+  .row-ctl > label { color: var(--dim); font-size: 13px; min-width: 70px; }
+  button, select, input[type=text], input[type=number] {
+    background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 12px; font: inherit; font-size: 15px;
+  }
+  button { cursor: pointer; }
+  .meter button.on { background: var(--lit); color: #111; border-color: var(--lit); font-weight: 700; }
+  input[type=text] { flex: 1; min-width: 180px; font-size: 18px; letter-spacing: 1px; }
+  select { flex: 1; min-width: 180px; }
+  select.small { flex: none; min-width: 110px; }
+  input[type=number] { width: 72px; text-align: center; font-size: 18px; }
+  input[type=range] { flex: 1; min-width: 140px; accent-color: var(--lit); }
+  .chk { display: flex; gap: 6px; align-items: center; font-size: 14px; cursor: pointer; }
+  #play { background: var(--lit); color: #111; border: none; font-weight: 700; font-size: 18px; padding: 12px 28px; }
+  #play.stop { background: var(--accent); color: #fff; }
+  .hint { color: var(--dim); font-size: 12px; }
+  .warn { color: var(--accent); font-size: 13px; }
+  .sep { border-top: 1px solid var(--line); margin: 12px 0; }
+  /* Ô tiết điệu: chữ thật vẽ ở lớp dưới (có gạch chân nốt đúng phách), ô nhập trong suốt nằm trên */
+  .pat-wrap { position: relative; flex: 1; min-width: 180px; }
+  .pat-wrap input[type=text] { width: 100%; min-width: 0; position: relative; background: transparent; color: transparent; caret-color: var(--text); }
+  .pat-mirror { position: absolute; inset: 0; padding: 8px 12px; border: 1px solid transparent; border-radius: 8px; background: var(--bg);
+    font-size: 18px; letter-spacing: 1px; line-height: normal; white-space: pre; overflow: hidden; pointer-events: none; }
+  .pat-mirror u { text-decoration-color: var(--lit); text-decoration-thickness: 3px; text-underline-offset: 5px; }
+  fieldset { border: none; margin: 0; padding: 0; min-width: 0; transition: opacity .2s; }
+  fieldset:disabled { opacity: .35; }
+  fieldset:disabled * { cursor: not-allowed; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; border-radius: 0; background: var(--bg); color: var(--dim); }
+  .seg button.on { background: var(--lit); color: #111; font-weight: 700; }
+
+  /* Sân khấu karaoke */
+  .stage { padding: 20px 14px 24px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .info { color: var(--dim); font-size: 14px; }
+  .info b { color: var(--text); font-size: 18px; }
+  .dots { display: flex; gap: 10px; }
+  .dot { width: 22px; height: 22px; border-radius: 50%; background: var(--line); transition: background .05s; }
+  .dot.first { width: 30px; height: 30px; }
+  .dot.on { background: var(--beat); }
+  .dot.first.on { background: var(--accent); }
+  .foot-lamp { font-size: 34px; opacity: .25; transition: opacity .25s, transform .25s; }
+  .foot-lamp.hit { opacity: 1; transform: scale(1.25); transition: none; }
+
+  /* Hợp âm */
+  .chordbox { display: flex; align-items: center; gap: 18px; margin-bottom: 12px; }
+  #diagram { width: 110px; height: 128px; flex: none; color: var(--text); }
+  .chord-now { font-size: clamp(40px, 9vw, 64px); font-weight: 800; line-height: 1; }
+  .chord-now.change { animation: pop .3s ease-out; }
+  @keyframes pop { from { transform: scale(1.25); color: var(--lit); } to { transform: scale(1); } }
+  .chord-real { color: var(--beat); font-size: 14px; margin-top: 4px; min-height: 18px; }
+  .chord-next { color: var(--dim); font-size: 16px; margin-top: 8px; }
+  .chord-next b { color: var(--text); font-size: 22px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+  .chip { padding: 4px 10px; border-radius: 6px; background: var(--bg); color: var(--dim); font-weight: 600; }
+  .chip.on { background: var(--lit); color: #111; }
+
+  .line { position: relative; user-select: none; }
+  .cells { display: grid; border-left: 3px solid var(--dim); border-right: 3px solid var(--dim); }
+  .cells.lit { position: absolute; inset: 0; color: var(--lit); clip-path: inset(0 100% 0 0); border-color: transparent; }
+  .cell { text-align: center; padding: 6px 0; }
+  .cell.bs { border-left: 1px dashed var(--line); }
+  .cell:first-child { border-left: none; }
+  .foot { height: 30px; font-size: 20px; line-height: 30px; }
+  .foot.down { font-size: 27px; }
+  .tok { font-size: clamp(26px, 7vw, 64px); font-weight: 800; line-height: 1.15; color: var(--dim); transition: transform .08s; }
+  .lit .tok { color: var(--lit); }
+  .cnt { font-size: clamp(14px, 3vw, 20px); color: var(--dim); margin-top: 4px; }
+  .lit .cnt { color: var(--text); }
+  .cell.now .tok { transform: scale(1.18); }
+  .playhead { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--accent); left: 0; border-radius: 2px; box-shadow: 0 0 10px var(--accent); }
+  /* Hiệu ứng Bass */
+  .cell.bass .tok { color: #8a5a55; }
+  .lit .cell.bass .tok { color: var(--accent); }
+  .lit .cell.bass.boom .tok { animation: boom .35s ease-out; }
+  @keyframes boom {
+    0% { transform: scale(1.6); text-shadow: 0 0 24px var(--accent), 0 0 48px var(--accent); }
+    100% { transform: scale(1.18); text-shadow: 0 0 0 transparent; }
+  }
+  .ring { position: absolute; top: 50%; width: 60px; height: 60px; margin: -30px 0 0 -30px; border: 3px solid var(--accent);
+    border-radius: 50%; pointer-events: none; animation: ring .5s ease-out forwards; }
+  @keyframes ring { from { transform: scale(.4); opacity: .9; } to { transform: scale(2.6); opacity: 0; } }
+  .stage.thump { animation: thump .3s ease-out; }
+  @keyframes thump { from { box-shadow: inset 0 0 60px rgba(255,107,91,.45); } to { box-shadow: inset 0 0 0 rgba(255,107,91,0); } }
+  .countin { text-align: center; color: var(--accent); font-size: 18px; height: 24px; margin-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🎸 Study guitar with me</h1>
+
+  <div class="panel">
+    <div class="row-ctl">
+      <label>Nhịp</label>
+      <div class="meter" id="meter" style="display:flex;gap:6px"></div>
+    </div>
+    <div class="row-ctl">
+      <label>Tiết điệu</label>
+      <div class="pat-wrap">
+        <div class="pat-mirror" id="patMirror"></div>
+        <input type="text" id="pattern" spellcheck="false">
+      </div>
+    </div>
+    <div class="row-ctl"><span class="hint">Mỗi nốt cách nhau một dấu cách. <b>B</b> = dây Bass của hợp âm, <b>3 2 1</b> = dây số, <b>21</b> = dây 2 và 1 cùng lúc,
+      <b>x</b> = quạt xuống ↓, <b>l</b> = quạt lên ↑, <b>-</b> = ngân.</span></div>
+    <div class="row-ctl"><span class="warn" id="warn"></span></div>
+
+    <div class="sep"></div>
+    <div class="row-ctl">
+      <label>Tốc độ</label>
+      <button id="minus">−5</button>
+      <input type="range" id="bpmRange" min="30" max="200">
+      <button id="plus">+5</button>
+      <input type="number" id="bpm" min="30" max="200">
+      <span class="hint" id="bpmHint">phách/phút</span>
+    </div>
+    <div class="row-ctl">
+      <label>Chế độ tập</label>
+      <div class="seg" id="mode">
+        <button data-mode="click">🥁 Tiếng phách</button>
+        <button data-mode="guitar">🎸 Tiếng đàn</button>
+      </div>
+    </div>
+    <div class="row-ctl">
+      <label>Tuỳ chọn</label>
+      <label class="chk"><input type="checkbox" id="subOn"> Kêu cả từng nốt nhỏ</label>
+      <label class="chk"><input type="checkbox" id="countIn"> Đếm vào 1 ô nhịp</label>
+      <label class="chk"><input type="checkbox" id="bassOn"> Tiếng dây Bass</label>
+    </div>
+
+    <div class="sep"></div>
+    <fieldset id="progSection">
+      <div class="row-ctl">
+        <label>Vòng hợp âm</label>
+        <select id="progPreset"></select>
+      </div>
+      <div class="row-ctl">
+        <label>Hợp âm</label>
+        <input type="text" id="prog" spellcheck="false">
+      </div>
+      <div class="row-ctl"><span class="warn" id="progWarn"></span></div>
+      <div class="row-ctl">
+        <label>Mỗi hợp âm</label>
+        <select id="barsPer" class="small">
+          <option value="1">1 ô nhịp</option><option value="2">2 ô nhịp</option><option value="4">4 ô nhịp</option>
+        </select>
+        <label style="min-width:auto;margin-left:12px">Capo</label>
+        <select id="capo" class="small"></select>
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="panel stage" id="stage">
+    <div class="top">
+      <div class="info">Ô nhịp <b id="bar">–</b></div>
+      <div class="dots" id="dots"></div>
+      <div class="foot-lamp" id="lamp">🦶</div>
+    </div>
+    <div id="chordArea">
+      <div class="chordbox">
+        <svg id="diagram" viewBox="0 0 120 140"></svg>
+        <div>
+          <div class="chord-now" id="chordNow">–</div>
+          <div class="chord-real" id="chordReal"></div>
+          <div class="chord-next">Tiếp theo: <b id="chordNext">–</b></div>
+        </div>
+      </div>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="line" id="line">
+      <div class="cells" id="base"></div>
+      <div class="cells lit" id="lit"></div>
+      <div class="playhead" id="head"></div>
+    </div>
+    <div class="countin" id="countText"></div>
+    <div style="text-align:center;margin-top:14px">
+      <button id="play">▶ Bắt đầu</button>
+      <div class="hint" style="margin-top:8px">Phím tắt: Space = chạy/dừng, ↑ ↓ = tăng/giảm tốc độ</div>
+    </div>
+  </div>
+</main>
+
+<script src="vong-hop-am.js"></script>
+<script>
+const METERS = {
+  '2/4': { beats: 2, pattern: 'B 3 21 3' },
+  '3/4': { beats: 3, pattern: 'B 3 21 3 21 3' },
+  '4/4': { beats: 4, pattern: 'B 3 2 3 1 3 2 3' },
+  // 6/8: chân dậm 2 phách lớn (nốt 1 và 4), mỗi phách chia 3
+  '6/8': { beats: 2, compound: true, pattern: 'B 3 2 1 2 3' },
+};
+
+// Thế bấm: phím đàn từ dây 6 → dây 1 (-1 = không đánh), bass = dây Bass
+const CHORDS = {
+  C:     { frets: [-1, 3, 2, 0, 1, 0], bass: 5 },
+  C7:    { frets: [-1, 3, 2, 3, 1, 0], bass: 5 },
+  D:     { frets: [-1, -1, 0, 2, 3, 2], bass: 4 },
+  D7:    { frets: [-1, -1, 0, 2, 1, 2], bass: 4 },
+  Dm:    { frets: [-1, -1, 0, 2, 3, 1], bass: 4 },
+  Dm7:   { frets: [-1, -1, 0, 2, 1, 1], bass: 4 },
+  E:     { frets: [0, 2, 2, 1, 0, 0], bass: 6 },
+  E7:    { frets: [0, 2, 0, 1, 0, 0], bass: 6 },
+  Em:    { frets: [0, 2, 2, 0, 0, 0], bass: 6 },
+  F:     { frets: [-1, -1, 3, 2, 1, 1], bass: 4 },
+  Fmaj7: { frets: [-1, -1, 3, 2, 1, 0], bass: 4 },
+  G:     { frets: [3, 2, 0, 0, 0, 3], bass: 6 },
+  G7:    { frets: [3, 2, 0, 0, 0, 1], bass: 6 },
+  Gm:    { frets: [3, 5, 5, 3, 3, 3], bass: 6 },
+  A:     { frets: [-1, 0, 2, 2, 2, 0], bass: 5 },
+  A7:    { frets: [-1, 0, 2, 0, 2, 0], bass: 5 },
+  Am:    { frets: [-1, 0, 2, 2, 1, 0], bass: 5 },
+  Am7:   { frets: [-1, 0, 2, 0, 1, 0], bass: 5 },
+  Bb:    { frets: [-1, 1, 3, 3, 3, 1], bass: 5 },
+  Bm:    { frets: [-1, 2, 4, 4, 3, 2], bass: 5 },
+  B7:    { frets: [-1, 2, 1, 2, 0, 2], bass: 5 },
+};
+// Danh sách vòng hợp âm nằm ở file vong-hop-am.js (cùng thư mục)
+const PROGRESSIONS = window.VONG_HOP_AM || [];
+const OPEN = { 6: 82.41, 5: 110, 4: 146.83, 3: 196, 2: 246.94, 1: 329.63 };
+const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+const $ = id => document.getElementById(id);
+const state = {
+  meter: '2/4', pattern: 'B 3 21 3', bpm: 60, mode: 'click', subOn: false, countIn: true, bassOn: true,
+  prog: 'C Am F G', barsPer: 1, capo: 0,
+};
+try { Object.assign(state, JSON.parse(localStorage.getItem('nhip-karaoke') || '{}')); } catch (e) {}
+const save = () => { try { localStorage.setItem('nhip-karaoke', JSON.stringify(state)); } catch (e) {} };
+
+let tokens = [], prog = [];
+let cellEls = { base: [], lit: [] };
+
+const beats = () => METERS[state.meter].beats;
+const isBass = t => /^b/i.test(t);
+const tokLabel = t => t === 'x' ? '↓' : t === 'l' ? '↑' : t;
+const isBeatStart = (i, n) => i === 0 || Math.floor(i * beats() / n) !== Math.floor((i - 1) * beats() / n);
+const chordIdxAt = m => Math.floor(Math.max(0, m) / state.barsPer) % prog.length;
+
+function countLabel(i, n) {
+  const b = beats(), spb = n / b;
+  if (METERS[state.meter].compound && n === 6) return String(i + 1);
+  if (isBeatStart(i, n)) return String(Math.floor(i * b / n) + 1);
+  if (spb === 2) return 'và';
+  return '·';
+}
+
+function realName(name) {
+  const m = name.match(/^([A-G])([#b]?)(.*)$/);
+  const i = NOTES.indexOf(m[1]) + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + state.capo;
+  return NOTES[(i % 12 + 12) % 12] + m[3];
+}
+
+// Chọn đúng mục trong danh sách theo giá trị; không khớp mẫu nào thì về "— chọn —"
+function setSel(el, v) {
+  el.value = v.trim();
+  if (el.selectedIndex < 0) el.value = '';
+}
+
+const syncMirror = () => { $('patMirror').scrollLeft = $('pattern').scrollLeft; };
+
+// ---------- Giao diện ----------
+function renderMeter() {
+  $('meter').innerHTML = '';
+  for (const m of Object.keys(METERS)) {
+    const b = document.createElement('button');
+    b.textContent = m;
+    if (m === state.meter) b.className = 'on';
+    b.onclick = () => {
+      state.meter = m;
+      state.pattern = METERS[m].pattern;
+      renderAll();
+    };
+    $('meter').appendChild(b);
+  }
+  $('bpmHint').textContent = METERS[state.meter].compound ? 'phách chân/phút (1 phách = 3 nốt)' : 'phách/phút';
+  $('dots').innerHTML = Array.from({ length: beats() }, (_, i) => `<div class="dot${i === 0 ? ' first' : ''}"></div>`).join('');
+}
+
+function renderPattern() {
+  tokens = state.pattern.trim().split(/\s+/).filter(Boolean);
+  if (!tokens.length) tokens = ['B'];
+  const n = tokens.length, b = beats();
+  $('warn').textContent = n % b !== 0
+    ? `Lưu ý: nhịp ${state.meter} có ${b} phách chân, số nốt (${n}) nên chia hết cho ${b} để chia đều.`
+    : '';
+  // Gạch chân nốt rơi đúng phách (chỗ dậm chân) ngay trong ô tiết điệu
+  let k = 0;
+  $('patMirror').innerHTML = state.pattern.split(/(\s+)/).map(part => {
+    if (!part || /^\s+$/.test(part)) return part;
+    const esc = part.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    return isBeatStart(k++, n) ? `<u>${esc}</u>` : esc;
+  }).join('');
+  syncMirror();
+  for (const which of ['base', 'lit']) {
+    const el = $(which);
+    el.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+    el.innerHTML = tokens.map((t, i) => {
+      const bs = isBeatStart(i, n);
+      return `<div class="cell${bs ? ' bs' : ''}${isBass(t) ? ' bass' : ''}">
+        <div class="foot${i === 0 ? ' down' : ''}">${bs ? '🦶' : ''}</div>
+        <div class="tok">${tokLabel(t).replace(/</g, '&lt;')}</div>
+        <div class="cnt">${countLabel(i, n)}</div>
+      </div>`;
+    }).join('');
+    cellEls[which] = [...el.children];
+  }
+}
+
+function renderProg() {
+  const names = state.prog.trim().split(/[\s,\-–]+/).filter(Boolean);
+  const bad = names.filter(c => !CHORDS[c]);
+  prog = names.filter(c => CHORDS[c]);
+  if (!prog.length) prog = ['C'];
+  $('progWarn').textContent = bad.length ? `Chưa có thế bấm cho: ${bad.join(', ')} (sẽ bỏ qua)` : '';
+  $('chips').innerHTML = prog.map(c => `<span class="chip">${c}</span>`).join('');
+  showChord(0, true);
+}
+
+function diagramSvg(name) {
+  const fr = CHORDS[name].frets, bass = CHORDS[name].bass;
+  const pos = fr.filter(f => f > 0);
+  const max = pos.length ? Math.max(...pos) : 0;
+  const base = max > 4 ? Math.min(...pos) : 1;
+  const X = i => 20 + i * 16, Y = r => 30 + r * 22;
+  let s = '';
+  for (let r = 0; r <= 4; r++) s += `<line x1="20" x2="100" y1="${Y(r)}" y2="${Y(r)}" stroke="currentColor" stroke-opacity=".5"/>`;
+  for (let i = 0; i < 6; i++) s += `<line x1="${X(i)}" x2="${X(i)}" y1="${Y(0)}" y2="${Y(4)}" stroke="currentColor" stroke-opacity=".7"/>`;
+  if (base === 1) s += `<rect x="18" y="${Y(0) - 4}" width="84" height="5" fill="currentColor"/>`;
+  else s += `<text x="104" y="${Y(0) + 15}" font-size="12" fill="currentColor">${base}fr</text>`;
+  fr.forEach((f, i) => {
+    const isB = 6 - i === bass, col = isB ? 'var(--accent)' : 'currentColor';
+    if (f < 0) s += `<text x="${X(i)}" y="20" font-size="13" text-anchor="middle" fill="var(--dim)">×</text>`;
+    else if (f === 0) s += `<circle cx="${X(i)}" cy="15" r="5" fill="none" stroke="${col}" stroke-width="2"/>`;
+    else s += `<circle cx="${X(i)}" cy="${Y(f - base + 0.5)}" r="6.5" fill="${col}"/>`;
+  });
+  s += `<text x="60" y="138" font-size="10" text-anchor="middle" fill="var(--accent)">● = dây Bass</text>`;
+  return s;
+}
+
+let shownChord = -1;
+function showChord(idx, force) {
+  if (idx === shownChord && !force) return;
+  shownChord = idx;
+  const name = prog[idx], next = prog[(idx + 1) % prog.length];
+  $('chordNow').textContent = name;
+  $('chordNow').classList.remove('change'); void $('chordNow').offsetWidth; $('chordNow').classList.add('change');
+  $('chordReal').textContent = state.capo ? `Capo ${state.capo} · âm thật: ${realName(name)}` : '';
+  $('chordNext').textContent = next;
+  $('diagram').innerHTML = diagramSvg(name);
+  [...$('chips').children].forEach((c, i) => c.classList.toggle('on', i === idx));
+}
+
+function renderAll() {
+  renderMeter();
+  $('pattern').value = state.pattern;
+  setSel($('progPreset'), state.prog);
+  $('bpm').value = $('bpmRange').value = state.bpm;
+  renderMode();
+  $('subOn').checked = state.subOn;
+  $('countIn').checked = state.countIn;
+  $('bassOn').checked = state.bassOn;
+  $('prog').value = state.prog;
+  $('barsPer').value = state.barsPer;
+  $('capo').value = state.capo;
+  renderPattern();
+  renderProg();
+  save();
+}
+
+function renderMode() {
+  [...$('mode').children].forEach(b => b.classList.toggle('on', b.dataset.mode === state.mode));
+  // Chế độ phách không cần hợp âm: khoá phần cài đặt vòng hợp âm, ẩn khung hợp âm
+  const clickMode = state.mode === 'click';
+  $('progSection').disabled = clickMode;
+  $('chordArea').style.display = clickMode ? 'none' : '';
+  $('subOn').parentElement.style.display = clickMode ? '' : 'none';
+  $('bassOn').parentElement.style.display = clickMode ? '' : 'none';
+}
+
+$('progPreset').innerHTML = (PROGRESSIONS.length
+  ? '<option value="">— chọn vòng —</option>'
+  : '<option value="">(không đọc được file vong-hop-am.js)</option>') +
+  PROGRESSIONS.map(v => `<option value="${v.hop_am.trim()}">${v.ten}: ${v.hop_am}</option>`).join('');
+$('capo').innerHTML = Array.from({ length: 8 }, (_, i) => `<option value="${i}">${i ? 'Ngăn ' + i : 'Không'}</option>`).join('');
+
+// ---------- Âm thanh (Web Audio, hẹn giờ trước để nhịp chính xác) ----------
+let ctx = null, timer = null, raf = null, playing = false;
+let nextTime = 0, step = 0, measure = 0, queue = [];
+
+// Ba kiểu âm khác hẳn nhau để không nhầm:
+// level 0 = phách 1: tiếng chuông cao, ngân  ("Ding")
+// level 1 = phách 2, 3, 4: tiếng mõ gỗ trầm, khô ("Cốc")
+// level 2 = nốt nhỏ: tiếng xì rất nhẹ như hi-hat ("tsk")
+let noiseBuf = null;
+function click(time, level) {
+  const vol = [0.8, 0.65, 0.2][level];
+  const g = ctx.createGain();
+  g.connect(ctx.destination);
+  if (level === 0) {
+    g.gain.setValueAtTime(vol, time);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.25);
+    for (const [f, a] of [[1760, 0.6], [2640, 0.3], [3520, 0.15]]) {
+      const o = ctx.createOscillator(), og = ctx.createGain();
+      o.frequency.value = f;
+      og.gain.value = a;
+      o.connect(og).connect(g);
+      o.start(time);
+      o.stop(time + 0.26);
+    }
+  } else if (level === 1) {
+    const o = ctx.createOscillator();
+    o.frequency.setValueAtTime(700, time);
+    o.frequency.exponentialRampToValueAtTime(420, time + 0.03);
+    g.gain.setValueAtTime(vol, time);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
+    o.connect(g);
+    o.start(time);
+    o.stop(time + 0.07);
+  } else {
+    if (!noiseBuf) {
+      noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const src = ctx.createBufferSource(), hp = ctx.createBiquadFilter();
+    src.buffer = noiseBuf;
+    hp.type = 'highpass';
+    hp.frequency.value = 6000;
+    g.gain.setValueAtTime(vol, time);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.03);
+    src.connect(hp).connect(g);
+    src.start(time);
+    src.stop(time + 0.05);
+  }
+}
+
+// Tiếng dây đàn thật: thuật toán Karplus-Strong (sóng nhiễu chạy vòng qua bộ lọc → giống dây rung)
+const pluckCache = new Map();
+function pluckBuffer(freq) {
+  const key = freq.toFixed(2);
+  if (pluckCache.has(key)) return pluckCache.get(key);
+  const sr = ctx.sampleRate, len = Math.floor(sr * 3);
+  const buf = ctx.createBuffer(1, len, sr), d = buf.getChannelData(0);
+  const N = Math.max(2, Math.round(sr / freq - 0.5));
+  let lp = 0;
+  for (let i = 0; i < N; i++) { lp = lp * 0.4 + (Math.random() * 2 - 1) * 0.6; d[i] = lp * 0.5; }
+  for (let i = N; i < len; i++) d[i] = 0.996 * 0.5 * (d[i - N] + (i > N ? d[i - N - 1] : 0));
+  for (let i = 0; i < 2000; i++) d[len - 1 - i] *= i / 2000;
+  pluckCache.set(key, buf);
+  return buf;
+}
+
+const voices = {};
+function damp(s, time) {
+  const v = voices[s];
+  if (!v) return;
+  v.g.gain.setTargetAtTime(0, time, 0.02);
+  v.src.stop(time + 0.3);
+  voices[s] = null;
+}
+const dampAll = time => { for (let s = 1; s <= 6; s++) damp(s, time); };
+
+function playString(s, chord, time, vel = 1) {
+  const fret = chord.frets[6 - s];
+  if (fret < 0) return;
+  const vol = vel * 0.75;
+  damp(s, time);
+  const src = ctx.createBufferSource(), g = ctx.createGain();
+  src.buffer = pluckBuffer(OPEN[s] * 2 ** ((fret + state.capo) / 12));
+  g.gain.setValueAtTime(vol, time);
+  src.connect(g).connect(ctx.destination);
+  src.start(time);
+  voices[s] = { src, g };
+}
+
+function playToken(t, chord, time) {
+  if (t === 'x' || t === '↓') {
+    for (let s = chord.bass, k = 0; s >= 1; s--, k++) playString(s, chord, time + k * 0.012, 0.75);
+  } else if (t === 'l' || t === '↑') {
+    for (let s = 1; s <= 4; s++) playString(s, chord, time + (s - 1) * 0.01, 0.55);
+  } else if (isBass(t)) {
+    playString(chord.bass, chord, time, 1.1);
+  } else if (/^[1-6]+$/.test(t)) {
+    for (const ch of t) playString(+ch, chord, time, 0.8);
+  }
+}
+
+// Chế độ phách: tiếng "tưng" dây Mi trầm (82 Hz) cố định cho nốt B, không theo hợp âm
+function bassNote(time, dur) {
+  const len = Math.min(1.2, Math.max(0.35, dur * 2));
+  const out = ctx.createGain();
+  out.gain.setValueAtTime(0.0001, time);
+  out.gain.exponentialRampToValueAtTime(0.8, time + 0.008);
+  out.gain.exponentialRampToValueAtTime(0.0001, time + len);
+  out.connect(ctx.destination);
+  const body = ctx.createOscillator();
+  body.type = 'sine';
+  body.frequency.setValueAtTime(130, time);
+  body.frequency.exponentialRampToValueAtTime(82.4, time + 0.06);
+  body.connect(out);
+  const pluck = ctx.createOscillator(), lp = ctx.createBiquadFilter(), pg = ctx.createGain();
+  pluck.type = 'sawtooth';
+  pluck.frequency.value = 82.4;
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(1800, time);
+  lp.frequency.exponentialRampToValueAtTime(150, time + 0.25);
+  pg.gain.value = 0.35;
+  pluck.connect(lp).connect(pg).connect(out);
+  for (const o of [body, pluck]) { o.start(time); o.stop(time + len + 0.05); }
+}
+
+function scheduler() {
+  while (nextTime < ctx.currentTime + 0.12) {
+    const n = tokens.length;
+    if (step >= n) { step = 0; measure++; }
+    const dur = beats() * 60 / state.bpm / n;
+    const bs = isBeatStart(step, n);
+    const clickMode = state.mode === 'click';
+    // Đếm vào luôn có tiếng phách; chế độ "Tiếng đàn" thì sau đó chỉ còn tiếng đàn
+    if (measure < 0) {
+      if (bs) click(nextTime, step === 0 ? 0 : 1);
+    } else if (clickMode) {
+      if (step === 0) click(nextTime, 0);
+      else if (bs) click(nextTime, 1);
+      else if (state.subOn) click(nextTime, 2);
+    }
+    const chordIdx = chordIdxAt(measure);
+    if (measure >= 0) {
+      if (clickMode) {
+        if (state.bassOn && isBass(tokens[step])) bassNote(nextTime, dur);
+      } else {
+        if (step === 0 && measure % state.barsPer === 0) dampAll(nextTime);
+        playToken(tokens[step], CHORDS[prog[chordIdx]], nextTime);
+      }
+    }
+    const bass = measure >= 0 && isBass(tokens[step]);
+    queue.push({ time: nextTime, dur, step, n, measure, bs, bass, chordIdx });
+    nextTime += dur;
+    step++;
+  }
+}
+
+// Nốt Bass: chữ bùng sáng, vòng sóng lan ra, khung sân khấu "thụp" nhẹ
+function bassFx(i, n) {
+  const cell = cellEls.lit[i], stage = $('stage');
+  if (cell) { cell.classList.remove('boom'); void cell.offsetWidth; cell.classList.add('boom'); }
+  stage.classList.remove('thump'); void stage.offsetWidth; stage.classList.add('thump');
+  const ring = document.createElement('div');
+  ring.className = 'ring';
+  ring.style.left = (i + 0.5) / n * 100 + '%';
+  ring.onanimationend = () => ring.remove();
+  $('line').appendChild(ring);
+}
+
+let lastKey = '';
+function draw() {
+  const now = ctx.currentTime;
+  while (queue.length > 1 && queue[1].time <= now) queue.shift();
+  const ev = queue[0];
+  if (ev && ev.time <= now) {
+    const frac = Math.min(1, (now - ev.time) / ev.dur);
+    const key = ev.measure + ':' + ev.step;
+    const counting = ev.measure < 0;
+    const p = counting ? 0 : (ev.step + frac) / ev.n * 100;
+    $('lit').style.clipPath = `inset(0 ${100 - p}% 0 0)`;
+    $('head').style.left = `calc(${p}% - 1px)`;
+    if (key !== lastKey) {
+      lastKey = key;
+      const beatIdx = Math.floor(ev.step * beats() / ev.n);
+      [...$('dots').children].forEach((d, i) => d.classList.toggle('on', i === beatIdx));
+      for (const w of ['base', 'lit']) cellEls[w].forEach((c, i) => c.classList.toggle('now', !counting && i === ev.step));
+      if (ev.bs) {
+        const lamp = $('lamp');
+        lamp.classList.add('hit');
+        setTimeout(() => lamp.classList.remove('hit'), 90);
+      }
+      if (ev.bass) bassFx(ev.step, ev.n);
+      if (ev.chordIdx < prog.length) showChord(ev.chordIdx);
+      $('bar').textContent = counting ? '–' : ev.measure + 1;
+      $('countText').textContent = counting ? `Chuẩn bị… ${beatIdx + 1}` : '';
+    }
+  }
+  raf = requestAnimationFrame(draw);
+}
+
+function start() {
+  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+  ctx.resume();
+  step = 0;
+  measure = state.countIn ? -1 : 0;
+  queue = [];
+  lastKey = '';
+  nextTime = ctx.currentTime + 0.1;
+  timer = setInterval(scheduler, 25);
+  scheduler();
+  draw();
+  playing = true;
+  $('play').textContent = '■ Dừng';
+  $('play').classList.add('stop');
+}
+
+function stop() {
+  clearInterval(timer);
+  cancelAnimationFrame(raf);
+  dampAll(ctx.currentTime);
+  playing = false;
+  $('play').textContent = '▶ Bắt đầu';
+  $('play').classList.remove('stop');
+  $('lit').style.clipPath = 'inset(0 100% 0 0)';
+  $('head').style.left = '0';
+  $('bar').textContent = '–';
+  $('countText').textContent = '';
+  [...$('dots').children].forEach(d => d.classList.remove('on'));
+  for (const w of ['base', 'lit']) cellEls[w].forEach(c => c.classList.remove('now'));
+  showChord(0, true);
+}
+
+// ---------- Sự kiện ----------
+function setBpm(v) {
+  state.bpm = Math.max(30, Math.min(200, Math.round(+v || 60)));
+  $('bpm').value = $('bpmRange').value = state.bpm;
+  save();
+}
+$('play').onclick = () => playing ? stop() : start();
+$('pattern').oninput = e => { state.pattern = e.target.value; renderPattern(); save(); };
+for (const ev of ['scroll', 'keyup', 'click', 'select']) $('pattern').addEventListener(ev, syncMirror);
+[...$('mode').children].forEach(b => b.onclick = () => { state.mode = b.dataset.mode; renderMode(); save(); });
+$('progPreset').onchange = e => { if (e.target.value) { state.prog = e.target.value; $('prog').value = state.prog; renderProg(); save(); } };
+$('prog').oninput = e => { state.prog = e.target.value; setSel($('progPreset'), state.prog); renderProg(); save(); };
+$('barsPer').onchange = e => { state.barsPer = +e.target.value; save(); };
+$('capo').onchange = e => { state.capo = +e.target.value; renderProg(); save(); };
+$('bpmRange').oninput = e => setBpm(e.target.value);
+$('bpm').onchange = e => setBpm(e.target.value);
+$('minus').onclick = () => setBpm(state.bpm - 5);
+$('plus').onclick = () => setBpm(state.bpm + 5);
+$('subOn').onchange = e => { state.subOn = e.target.checked; save(); };
+$('countIn').onchange = e => { state.countIn = e.target.checked; save(); };
+$('bassOn').onchange = e => { state.bassOn = e.target.checked; save(); };
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+  if (e.target.tagName === 'SELECT') return;
+  if (e.code === 'Space') { e.preventDefault(); playing ? stop() : start(); }
+  if (e.code === 'ArrowUp') { e.preventDefault(); setBpm(state.bpm + 5); }
+  if (e.code === 'ArrowDown') { e.preventDefault(); setBpm(state.bpm - 5); }
+});
+
+renderAll();
+</script>
+</body>
+</html>
